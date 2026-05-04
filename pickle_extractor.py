@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Pickle Extractor 3000
-Downloads YouTube video, isolates vocals, extracts all "pickles"
+Downloads YouTube video, isolates vocals, extracts all instances of a target word
 """
 
 import whisper
@@ -82,43 +82,44 @@ def extract_word_samples(vocals_file, target_word="pickles", model_size="medium"
     audio = AudioSegment.from_file(vocals_file)
     
     # Create output directory
-    output_dir = Path("pickle_samples")
+    word_slug = target_word.lower()
+    output_dir = Path(f"{word_slug}_samples")
     output_dir.mkdir(exist_ok=True)
-    
+
     # Extract each instance
     sample_count = 0
-    
+
     for segment in result['segments']:
         for word_info in segment.get('words', []):
             word = word_info['word'].strip().lower()
             word_clean = ''.join(c for c in word if c.isalnum())
-            
+
             if target_word.lower() in word_clean:
                 start_time = word_info['start'] * 1000  # ms
                 end_time = word_info['end'] * 1000
-                
+
                 # Add padding and pre-buffer
                 start_with_padding = max(0, start_time - pre_buffer_ms)
                 end_with_padding = min(len(audio), end_time + padding_ms)
-                
+
                 # Extract and normalize
                 sample = audio[start_with_padding:end_with_padding]
                 sample = sample.normalize()
-                
+
                 # Export
                 sample_count += 1
                 timestamp = f"{int(start_time/1000):03d}s"
-                output_file = output_dir / f"pickle_{sample_count:03d}_{timestamp}.wav"
-                
+                output_file = output_dir / f"{word_slug}_{sample_count:03d}_{timestamp}.wav"
+
                 sample.export(output_file, format="wav")
                 print(f"  ✓ {output_file} ({end_time - start_time:.0f}ms)")
-    
+
     # Save transcript
     transcript_file = output_dir / "transcript.txt"
     with open(transcript_file, 'w') as f:
         f.write(result['text'])
-    
-    print(f"\n🎉 Extracted {sample_count} pickle samples!")
+
+    print(f"\n🎉 Extracted {sample_count} '{target_word}' samples!")
     print(f"📁 Output: {output_dir}/")
     print(f"📄 Transcript: {transcript_file}")
     
@@ -134,7 +135,8 @@ def main():
 Examples:
   python pickle_extractor.py "https://youtube.com/watch?v=..."
   python pickle_extractor.py "https://youtube.com/watch?v=..." --word cucumber
-  python pickle_extractor.py "https://youtube.com/watch?v=..." --model small --padding 150
+  python pickle_extractor.py "https://youtube.com/watch?v=..." --word biden
+  python pickle_extractor.py "https://youtube.com/watch?v=..." --word trump --model small --padding 150
         """
     )
     
@@ -180,7 +182,7 @@ Examples:
             Path(audio_file).unlink(missing_ok=True)
             shutil.rmtree("separated", ignore_errors=True)
         
-        print("\n✨ Done! Load samples into Reason and make some pickle music!")
+        print(f"\n✨ Done! Load samples into Reason and make some {args.word} music!")
         
     except KeyboardInterrupt:
         print("\n\n⚠️  Interrupted by user")
